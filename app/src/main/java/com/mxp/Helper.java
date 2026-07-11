@@ -23,21 +23,23 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Helper {
 
     // ── State fields ──────────────────────────────────────────────
-    public static boolean isCountingDown    = false;
-    public static boolean isSecureActive    = false;
+    private static final AtomicBoolean isCountingDown = new AtomicBoolean(false);
+    private static final AtomicBoolean isSecureActive = new AtomicBoolean(false);
     
     // Flag status registrasi callback & status jaringan VPN
-    public static boolean isVpnWatcherRegistered = false;
-    public static boolean isVpnConnected         = false;
+    private static final AtomicBoolean isVpnWatcherRegistered = new AtomicBoolean(false);
+    private static final AtomicBoolean isVpnConnected = new AtomicBoolean(false);
 
     private static Handler keyRepeatHandler = null;
-    public static EditText keyboardEditText = null;
-    public static TextWatcher secureWatcherHandler = null;
-    public static ConnectivityManager.NetworkCallback vpnWatcherHandler = null;
+    private static final AtomicReference<EditText> keyboardEditText = new AtomicReference<>(null);
+    private static final AtomicReference<TextWatcher> secureWatcherHandler = new AtomicReference<>(null);
+    private static final AtomicReference<ConnectivityManager.NetworkCallback> vpnWatcherHandler = new AtomicReference<>(null);
 
     private static WeakReference<Activity> sActivityRef = null;
     private static ViewGroup sRootView = null;
@@ -63,8 +65,10 @@ public class Helper {
         @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
         @Override
         public void afterTextChanged(Editable s) {
-            if (keyboardEditText == null) return;
-            String text = keyboardEditText.getText().toString();
+            EditText editText = keyboardEditText.get();
+            if (editText == null) return;
+            
+            String text = editText.getText().toString();
             if (text.isEmpty()) return;
             
             for (int i = 0; i < text.length(); ) {
@@ -72,9 +76,9 @@ public class Helper {
                 nativeAddChar(cp);
                 i += Character.charCount(cp);
             }
-            keyboardEditText.removeTextChangedListener(this);
-            keyboardEditText.setText("");
-            keyboardEditText.addTextChangedListener(this);
+            editText.removeTextChangedListener(this);
+            editText.setText("");
+            editText.addTextChangedListener(this);
         }
     }
 
@@ -100,12 +104,12 @@ public class Helper {
             if (cm == null) return;
             NetworkCapabilities caps = cm.getNetworkCapabilities(network);
             if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                isVpnConnected = true;
+                isVpnConnected.set(true);
             }
         }
         @Override
         public void onLost(Network network) { 
-            isVpnConnected = false; 
+            isVpnConnected.set(false); 
         }
     }
 
@@ -117,15 +121,18 @@ public class Helper {
 
     public static void cleanup() {
         unregisterVpnWatcher();
-        if (sRootView != null && keyboardEditText != null) {
-            sRootView.removeView(keyboardEditText);
-            keyboardEditText = null;
+        if (sRootView != null) {
+            EditText editText = keyboardEditText.get();
+            if (editText != null) {
+                sRootView.removeView(editText);
+                keyboardEditText.set(null);
+            }
         }
         sActivityRef = null;
         sRootView = null;
     }
 
-    // ── requestRoot — Penulisan Thread & Lambda sudah dicek total ──
+    // ── requestRoot — Thread & Lambda handling verified ──
     public static void requestRoot(final Activity activity) {
         new Thread(() -> {
             Process p = null;
@@ -134,7 +141,7 @@ public class Helper {
                 p = Runtime.getRuntime().exec("su");
                 os = new DataOutputStream(p.getOutputStream());
                 
-                // Pembersihan syntax thread pendukung stream consumption
+                // Stream consumption in separate threads to prevent deadlock
                 final Process finalP = p;
                 new Thread(() -> consumeStream(finalP.getInputStream())).start();
                 new Thread(() -> consumeStream(finalP.getErrorStream())).start();
@@ -162,7 +169,7 @@ public class Helper {
                 }
             } finally {
                 if (os != null) { try { os.close(); } catch (IOException ignored) {} }
-                if (p  != null) p.destroy();
+                if (p != null) p.destroy();
             }
         }).start();
     }
@@ -170,26 +177,26 @@ public class Helper {
     private static void consumeStream(java.io.InputStream is) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
             while (reader.readLine() != null) {
-                // Mengosongkan buffer stream
+                // Clear stream buffer
             }
         } catch (IOException ignored) {}
     }
 
     // ── putisCountingDown — JNI setter ────────────────────────────
     public static void putisCountingDown(boolean val) {
-        isCountingDown = val;
+        isCountingDown.set(val);
     }
 
     // ── mstartCountdownAndExit ────────────────────────────────────
     public static void mstartCountdownAndExit(final int seconds) {
         Activity act = getActivity();
         if (act == null) return;
-        isCountingDown = true;
+        isCountingDown.set(true);
         
         act.runOnUiThread(() -> {
             Toast.makeText(act, "Exiting in " + seconds + "s...", Toast.LENGTH_LONG).show();
             getMainHandler().postDelayed(() -> {
-                isCountingDown = false;
+                isCountingDown.set(false);
                 Activity currentAct = getActivity();
                 if (currentAct != null) currentAct.finish();
                 android.os.Process.killProcess(android.os.Process.myPid());
@@ -205,25 +212,30 @@ public class Helper {
         act.runOnUiThread(() -> {
             InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);
             if (show) {
-                if (keyboardEditText == null) {
-                    keyboardEditText = new EditText(act);
-                    keyboardEditText.setLayoutParams(new ViewGroup.LayoutParams(1, 1));
-                    keyboardEditText.setAlpha(0f);
-                    keyboardEditText.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
-                    sRootView.addView(keyboardEditText);
+                EditText editText = keyboardEditText.get();
+                if (editText == null) {
+                    editText = new EditText(act);
+                    editText.setLayoutParams(new ViewGroup.LayoutParams(1, 1));
+                    editText.setAlpha(0f);
+                    editText.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+                    sRootView.addView(editText);
                     
-                    secureWatcherHandler = new InputWatcher();
-                    keyboardEditText.addTextChangedListener(secureWatcherHandler);
-                    keyboardEditText.setOnKeyListener(new KeyHandler());
+                    InputWatcher watcher = new InputWatcher();
+                    secureWatcherHandler.set(watcher);
+                    editText.addTextChangedListener(watcher);
+                    editText.setOnKeyListener(new KeyHandler());
+                    
+                    keyboardEditText.set(editText);
                 }
-                keyboardEditText.requestFocus();
+                editText.requestFocus();
                 if (imm != null) {
-                    imm.showSoftInput(keyboardEditText, InputMethodManager.SHOW_FORCED);
+                    imm.showSoftInput(editText, InputMethodManager.SHOW_FORCED);
                 }
             } else {
-                if (keyboardEditText != null && imm != null) {
-                    keyboardEditText.clearFocus();
-                    imm.hideSoftInputFromWindow(keyboardEditText.getWindowToken(), 0);
+                EditText editText = keyboardEditText.get();
+                if (editText != null && imm != null) {
+                    editText.clearFocus();
+                    imm.hideSoftInputFromWindow(editText.getWindowToken(), 0);
                 }
             }
         });
@@ -239,11 +251,11 @@ public class Helper {
                 act.getWindow().setFlags(
                     android.view.WindowManager.LayoutParams.FLAG_SECURE,
                     android.view.WindowManager.LayoutParams.FLAG_SECURE);
-                isSecureActive = true;
+                isSecureActive.set(true);
             } else {
                 act.getWindow().clearFlags(
                     android.view.WindowManager.LayoutParams.FLAG_SECURE);
-                isSecureActive = false;
+                isSecureActive.set(false);
             }
         });
     }
@@ -251,40 +263,42 @@ public class Helper {
     // ── VPN watcher ───────────────────────────────────────────────
     public static void registerVpnWatcher() {
         Activity act = getActivity();
-        if (act == null || isVpnWatcherRegistered) return;
+        if (act == null || isVpnWatcherRegistered.get()) return;
         
         act.runOnUiThread(() -> {
             ConnectivityManager cm = (ConnectivityManager) act.getSystemService(Context.CONNECTIVITY_SERVICE);
             if (cm == null) return;
             
-            vpnWatcherHandler = new VpnCallback();
+            VpnCallback callback = new VpnCallback();
+            vpnWatcherHandler.set(callback);
             android.net.NetworkRequest req = new android.net.NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
                 .build();
-            cm.registerNetworkCallback(req, vpnWatcherHandler);
-            isVpnWatcherRegistered = true;
+            cm.registerNetworkCallback(req, callback);
+            isVpnWatcherRegistered.set(true);
         });
     }
 
     public static void unregisterVpnWatcher() {
         Activity act = getActivity();
-        if (act == null || !isVpnWatcherRegistered || vpnWatcherHandler == null) return;
+        if (act == null || !isVpnWatcherRegistered.get() || vpnWatcherHandler.get() == null) return;
         
         act.runOnUiThread(() -> {
             ConnectivityManager cm = (ConnectivityManager) act.getSystemService(Context.CONNECTIVITY_SERVICE);
-            if (cm != null) {
+            ConnectivityManager.NetworkCallback callback = vpnWatcherHandler.get();
+            if (cm != null && callback != null) {
                 try {
-                    cm.unregisterNetworkCallback(vpnWatcherHandler);
+                    cm.unregisterNetworkCallback(callback);
                 } catch (IllegalArgumentException ignored) {}
             }
-            vpnWatcherHandler = null;
-            isVpnWatcherRegistered = false;
-            isVpnConnected = false;
+            vpnWatcherHandler.set(null);
+            isVpnWatcherRegistered.set(false);
+            isVpnConnected.set(false);
         });
     }
 
-    // ── IsVpnActive (static check) ────────────────────────────────
-    public static boolean IsVpnActive() {
+    // ── isVpnActive (static check) ────────────────────────────────
+    public static boolean isVpnActive() {
         Activity act = getActivity();
         if (act == null) return false;
         ConnectivityManager cm = (ConnectivityManager) act.getSystemService(Context.CONNECTIVITY_SERVICE);

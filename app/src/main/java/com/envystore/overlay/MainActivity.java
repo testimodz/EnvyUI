@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Toast;
 
+import java.io.File;
+
 public class MainActivity extends Activity {
 
     static {
@@ -18,15 +20,49 @@ public class MainActivity extends Activity {
 
     private static final int REQ_OVERLAY = 1001;
 
+    private boolean isRooted() {
+        String[] paths = {
+            "/su/bin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/sbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/data/local/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/dev/com.koushikdutta.superuser.daemon/"
+        };
+        for (String path : paths) {
+            if (new File(path).exists()) return true;
+        }
+        return false;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        if (!isRooted()) {
+            new AlertDialog.Builder(this)
+                .setTitle("Envy - Root Required")
+                .setMessage("HP kamu tidak terdeteksi root.\nMod ini membutuhkan akses root untuk patch memory game.\nGunakan Magisk / KernelSU.")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+                })
+                .setCancelable(false)
+                .show();
+            return;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.canDrawOverlays(this)) {
                 new AlertDialog.Builder(this)
-                    .setTitle("Envy")
-                    .setMessage("Izin overlay diperlukan agar mod menu bisa tampil di atas game.")
+                    .setTitle("Envy - Izin Overlay")
+                    .setMessage("Izin \"Draw over other apps\" diperlukan agar mod menu bisa tampil di atas game.")
                     .setPositiveButton("Izinkan", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
@@ -40,10 +76,11 @@ public class MainActivity extends Activity {
                     .setNegativeButton("Batal", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            Toast.makeText(MainActivity.this, "Izin diperlukan!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "Izin overlay diperlukan!", Toast.LENGTH_SHORT).show();
                             finish();
                         }
                     })
+                    .setCancelable(false)
                     .show();
                 return;
             }

@@ -2,11 +2,11 @@
 <!--
     EnvyMOD - Toram Online Mod Menu
     Author  : Envy
-    Package : com.envy.torammod
+    Package : com.envystore.overlay
 -->
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.envy.torammod">
+    package="com.envystore.overlay">
 
     <!-- Overlay permission untuk ImGui UI di atas game -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>

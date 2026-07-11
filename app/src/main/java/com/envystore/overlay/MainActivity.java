@@ -14,11 +14,8 @@ import java.io.File;
 
 public class MainActivity extends Activity {
 
-    static {
-        System.loadLibrary("MEOW");
-    }
-
     private static final int REQ_OVERLAY = 1001;
+    private boolean libLoaded = false;
 
     private boolean isRooted() {
         String[] paths = {
@@ -43,6 +40,25 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Load native library dengan try-catch supaya FC bisa ditangkap
+        try {
+            System.loadLibrary("MEOW");
+            libLoaded = true;
+        } catch (UnsatisfiedLinkError e) {
+            new AlertDialog.Builder(this)
+                .setTitle("Envy - Error")
+                .setMessage("Gagal load native library: " + e.getMessage() + "\n\nPastikan build sukses dan ABI sesuai.")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+                })
+                .setCancelable(false)
+                .show();
+            return;
+        }
+
         if (!isRooted()) {
             new AlertDialog.Builder(this)
                 .setTitle("Envy - Root Required")
@@ -58,36 +74,37 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                new AlertDialog.Builder(this)
-                    .setTitle("Envy - Izin Overlay")
-                    .setMessage("Izin \"Draw over other apps\" diperlukan agar mod menu bisa tampil di atas game.")
-                    .setPositiveButton("Izinkan", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Intent intent = new Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:" + getPackageName())
-                            );
-                            startActivityForResult(intent, REQ_OVERLAY);
-                        }
-                    })
-                    .setNegativeButton("Batal", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Toast.makeText(MainActivity.this, "Izin overlay diperlukan!", Toast.LENGTH_SHORT).show();
-                            finish();
-                        }
-                    })
-                    .setCancelable(false)
-                    .show();
-                return;
-            }
-        }
+        requestOverlayIfNeeded();
+    }
 
-        Toast.makeText(this, "Envy aktif — buka Toram Online", Toast.LENGTH_SHORT).show();
-        finish();
+    private void requestOverlayIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            new AlertDialog.Builder(this)
+                .setTitle("Envy - Izin Overlay")
+                .setMessage("Izin \"Draw over other apps\" diperlukan agar mod menu bisa tampil di atas game.")
+                .setPositiveButton("Izinkan", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Intent intent = new Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName())
+                        );
+                        startActivityForResult(intent, REQ_OVERLAY);
+                    }
+                })
+                .setNegativeButton("Batal", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Toast.makeText(MainActivity.this, "Izin overlay diperlukan!", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                })
+                .setCancelable(false)
+                .show();
+        } else {
+            Toast.makeText(this, "Envy aktif — buka Toram Online", Toast.LENGTH_SHORT).show();
+            finish();
+        }
     }
 
     @Override

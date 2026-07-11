@@ -44,11 +44,11 @@ LOCAL_CFLAGS := -Wno-error=format-security \
                 -w
 
 # -------- CPP FLAGS --------
+# NOTE: -Werror dihapus supaya warning tidak membatalkan build
 LOCAL_CPPFLAGS := -Wno-error=format-security \
                   -fvisibility=hidden \
                   -ffunction-sections \
                   -fdata-sections \
-                  -Werror \
                   -s \
                   -std=c++17 \
                   -Wno-error=c++11-narrowing \

@@ -11,13 +11,15 @@ import android.provider.Settings;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 
 public class MainActivity extends Activity {
 
     private static final int REQ_OVERLAY = 1001;
     private boolean libLoaded = false;
 
-    private boolean isRooted() {
+    // Cek apakah binary su tersedia di path umum
+    private boolean isSuBinaryPresent() {
         String[] paths = {
             "/su/bin/su",
             "/system/bin/su",
@@ -36,18 +38,49 @@ public class MainActivity extends Activity {
         return false;
     }
 
+    // Coba jalankan 'su -c id' untuk trigger popup root request (Magisk/KernelSU)
+    private void requestRootAccess(final Runnable onGranted, final Runnable onDenied) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Process proc = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
+                    int exitCode = proc.waitFor();
+                    final boolean granted = (exitCode == 0);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (granted) {
+                                onGranted.run();
+                            } else {
+                                onDenied.run();
+                            }
+                        }
+                    });
+                } catch (IOException | InterruptedException e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            onDenied.run();
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Load native library dengan try-catch supaya FC bisa ditangkap
+        // Step 1: Load native library
         try {
             System.loadLibrary("MEOW");
             libLoaded = true;
         } catch (UnsatisfiedLinkError e) {
             new AlertDialog.Builder(this)
                 .setTitle("Envy - Error")
-                .setMessage("Gagal load native library: " + e.getMessage() + "\n\nPastikan build sukses dan ABI sesuai.")
+                .setMessage("Gagal load native library:\n" + e.getMessage() + "\n\nPastikan build sukses dan ABI arm64-v8a sesuai.")
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -59,10 +92,11 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (!isRooted()) {
+        // Step 2: Cek su binary dulu, lalu request root
+        if (!isSuBinaryPresent()) {
             new AlertDialog.Builder(this)
                 .setTitle("Envy - Root Required")
-                .setMessage("HP kamu tidak terdeteksi root.\nMod ini membutuhkan akses root untuk patch memory game.\nGunakan Magisk / KernelSU.")
+                .setMessage("HP kamu tidak terdeteksi root.\n\nMod ini butuh akses root (Magisk / KernelSU) untuk patch memory game.\nInstall Magisk terlebih dahulu.")
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -74,7 +108,34 @@ public class MainActivity extends Activity {
             return;
         }
 
-        requestOverlayIfNeeded();
+        // Step 3: Trigger root popup via su exec (Magisk/KernelSU akan muncul)
+        Toast.makeText(this, "Meminta akses root...", Toast.LENGTH_SHORT).show();
+        requestRootAccess(
+            new Runnable() {
+                @Override
+                public void run() {
+                    // Root granted — lanjut ke overlay
+                    requestOverlayIfNeeded();
+                }
+            },
+            new Runnable() {
+                @Override
+                public void run() {
+                    // Root denied
+                    new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Envy - Root Ditolak")
+                        .setMessage("Akses root ditolak.\n\nBuka Magisk / KernelSU dan izinkan aplikasi ini, lalu coba lagi.")
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                finish();
+                            }
+                        })
+                        .setCancelable(false)
+                        .show();
+                }
+            }
+        );
     }
 
     private void requestOverlayIfNeeded() {

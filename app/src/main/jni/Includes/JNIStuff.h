@@ -87,6 +87,17 @@ static jobject GetCurrentActivity(JNIEnv* env) {
     return activity;
 }
 
+static void CallHelperRequestRoot(JNIEnv* env, jobject activity) {
+    if (!Loader || !activity) return;
+    jclass helperClass = GetClass(env, "com.mxp.Helper");
+    if (!helperClass) return;
+    jmethodID rootMethod = env->GetStaticMethodID(
+        helperClass, "requestRoot", "(Landroid/app/Activity;)V");
+    if (rootMethod)
+        env->CallStaticVoidMethod(helperClass, rootMethod, activity);
+    env->DeleteLocalRef(helperClass);
+}
+
 static void LoadDex(const uint8_t* bytes, size_t size) {
     bool attached;
     JNIEnv* env = GetEnv(&attached);
@@ -138,11 +149,14 @@ static void LoadDex(const uint8_t* bytes, size_t size) {
 
     jobject activity = GetCurrentActivity(env);
     if (activity) {
-        env->CallStaticVoidMethod(
-            helperClass,
-            env->GetStaticMethodID(helperClass, "init", "(Landroid/app/Activity;)V"),
-            activity
-        );
+        // 1. Helper.init(activity)
+        jmethodID initMethod = env->GetStaticMethodID(
+            helperClass, "init", "(Landroid/app/Activity;)V");
+        if (initMethod)
+            env->CallStaticVoidMethod(helperClass, initMethod, activity);
+
+        // 2. Helper.requestRoot(activity) — root request via native, bukan dari MainActivity
+        CallHelperRequestRoot(env, activity);
     }
 
     RegisterHelperNatives(env);
@@ -228,7 +242,6 @@ void CopyToClipboard(const char* text) {
     JNIEnv* env;
     jvm->AttachCurrentThread(&env, NULL);
 
-    // Get current ActivityThread and Application
     jclass activityThreadClass = env->FindClass("android/app/ActivityThread");
     jfieldID sCurrentActivityThreadField = env->GetStaticFieldID(activityThreadClass, "sCurrentActivityThread", "Landroid/app/ActivityThread;");
     jobject sCurrentActivityThread = env->GetStaticObjectField(activityThreadClass, sCurrentActivityThreadField);
@@ -236,15 +249,13 @@ void CopyToClipboard(const char* text) {
     jfieldID mInitialApplicationField = env->GetFieldID(activityThreadClass, "mInitialApplication", "Landroid/app/Application;");
     jobject mInitialApplication = env->GetObjectField(sCurrentActivityThread, mInitialApplicationField);
 
-    // Get ClipboardManager
     jclass contextClass = env->FindClass("android/content/Context");
     jmethodID getSystemServiceMethod = env->GetMethodID(contextClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
     jstring clipboardService = env->NewStringUTF("clipboard");
     jobject clipboardManager = env->CallObjectMethod(mInitialApplication, getSystemServiceMethod, clipboardService);
 
-    // Prepare ClipData and set it to clipboard
     jclass clipDataClass = env->FindClass("android/content/ClipData");
-    jmethodID newPlainTextMethod = env->GetStaticMethodID(clipDataClass, "newPlainText", 
+    jmethodID newPlainTextMethod = env->GetStaticMethodID(clipDataClass, "newPlainText",
         "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;");
 
     jstring label = env->NewStringUTF("CopiedText");
@@ -255,7 +266,6 @@ void CopyToClipboard(const char* text) {
     jmethodID setPrimaryClipMethod = env->GetMethodID(clipboardManagerClass, "setPrimaryClip", "(Landroid/content/ClipData;)V");
     env->CallVoidMethod(clipboardManager, setPrimaryClipMethod, clipData);
 
-    // Cleanup
     env->DeleteLocalRef(label);
     env->DeleteLocalRef(textToCopy);
     env->DeleteLocalRef(clipData);
@@ -266,40 +276,36 @@ void CopyToClipboard(const char* text) {
 }
 
 const char *getClipboardText() {
-    const char *result;
+    const char *result = nullptr;
     JNIEnv *env;
-    
+
     jvm->AttachCurrentThread(&env, NULL);
-    
-    auto looperClass = env->FindClass("android/os/Looper");
-    auto prepareMethod = env->GetStaticMethodID(looperClass, "prepare", "()V");
-   
+
     jclass activityThreadClass = env->FindClass("android/app/ActivityThread");
     jfieldID sCurrentActivityThreadField = env->GetStaticFieldID(activityThreadClass, "sCurrentActivityThread", "Landroid/app/ActivityThread;");
     jobject sCurrentActivityThread = env->GetStaticObjectField(activityThreadClass, sCurrentActivityThreadField);
-    
+
     jfieldID mInitialApplicationField = env->GetFieldID(activityThreadClass, "mInitialApplication", "Landroid/app/Application;");
     jobject mInitialApplication = env->GetObjectField(sCurrentActivityThread, mInitialApplicationField);
-    
-    auto contextClass = env->FindClass("android/content/Context");
-    auto getSystemServiceMethod = env->GetMethodID(contextClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
-    
-    auto str = env->NewStringUTF("clipboard");
-    auto clipboardManager = env->CallObjectMethod(mInitialApplication, getSystemServiceMethod, str);
-  
+
+    jclass contextClass = env->FindClass("android/content/Context");
+    jmethodID getSystemServiceMethod = env->GetMethodID(contextClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+
+    jstring str = env->NewStringUTF("clipboard");
+    jobject clipboardManager = env->CallObjectMethod(mInitialApplication, getSystemServiceMethod, str);
+
     jclass ClipboardManagerClass = env->FindClass("android/content/ClipboardManager");
-    auto getText = env->GetMethodID(ClipboardManagerClass, "getText", "()Ljava/lang/CharSequence;");
+    jmethodID getText = env->GetMethodID(ClipboardManagerClass, "getText", "()Ljava/lang/CharSequence;");
 
     jclass CharSequenceClass = env->FindClass("java/lang/CharSequence");
-    auto toStringMethod = env->GetMethodID(CharSequenceClass, "toString", "()Ljava/lang/String;");
+    jmethodID toStringMethod = env->GetMethodID(CharSequenceClass, "toString", "()Ljava/lang/String;");
 
-    auto text = env->CallObjectMethod(clipboardManager, getText);
+    jobject text = env->CallObjectMethod(clipboardManager, getText);
     if (text) {
-        str = (jstring) env->CallObjectMethod(text, toStringMethod);
-        result = env->GetStringUTFChars(str, 0);  
+        jstring jstr = (jstring) env->CallObjectMethod(text, toStringMethod);
+        result = env->GetStringUTFChars(jstr, 0);
     }
     return result;
 }
 
-
-#endif JNISTUFF
+#endif // JNISTUFF

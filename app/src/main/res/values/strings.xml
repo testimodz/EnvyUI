@@ -1,3 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LGL Mod Menu</string>
+    <string name="app_name">EnvyMOD</string>
+    <string name="author">Envy</string>
+    <string name="version">1.0.0</string>
+    <string name="target_game">Toram Online</string>
 </resources>

@@ -28,7 +28,7 @@
 using namespace Toram::Offsets;
 
 // ============================================================
-//  ARM64 Patch Constants  (matches Lua PATCH CONSTANTS)
+//  ARM64 Patch Constants
 // ============================================================
 static const uint8_t V_TRUE[]          = {0x20,0x00,0x80,0xD2};
 static const uint8_t V_FALSE[]         = {0x00,0x00,0x80,0xD2};
@@ -196,74 +196,56 @@ static void ApplyEnvyTheme() {
     ImGuiStyle& s = ImGui::GetStyle();
     ImVec4* c = s.Colors;
 
-    // --- Palette ---
-    // BG deep navy
     ImVec4 bgDeep    = ImVec4(0.04f, 0.06f, 0.14f, 0.97f);
     ImVec4 bgMid     = ImVec4(0.07f, 0.10f, 0.22f, 1.00f);
     ImVec4 bgPanel   = ImVec4(0.09f, 0.13f, 0.28f, 1.00f);
-    // Cyan / electric blue accent
-    ImVec4 accent    = ImVec4(0.09f, 0.64f, 0.96f, 1.00f);  // #17A3F5
-    ImVec4 accentHov = ImVec4(0.20f, 0.76f, 1.00f, 1.00f);  // brighter on hover
-    ImVec4 accentAct = ImVec4(0.04f, 0.44f, 0.75f, 1.00f);  // pressed
-    // Teal for headers (from logo gradient)
-    ImVec4 teal      = ImVec4(0.04f, 0.80f, 0.76f, 1.00f);  // #0BCCBE
+    ImVec4 accent    = ImVec4(0.09f, 0.64f, 0.96f, 1.00f);
+    ImVec4 accentHov = ImVec4(0.20f, 0.76f, 1.00f, 1.00f);
+    ImVec4 accentAct = ImVec4(0.04f, 0.44f, 0.75f, 1.00f);
+    ImVec4 teal      = ImVec4(0.04f, 0.80f, 0.76f, 1.00f);
     ImVec4 tealDim   = ImVec4(0.04f, 0.80f, 0.76f, 0.25f);
-    // Text
     ImVec4 txtMain   = ImVec4(0.90f, 0.96f, 1.00f, 1.00f);
     ImVec4 txtDim    = ImVec4(0.55f, 0.70f, 0.85f, 1.00f);
-    // Border glow
     ImVec4 border    = ImVec4(0.09f, 0.64f, 0.96f, 0.55f);
 
     c[ImGuiCol_WindowBg]             = bgDeep;
     c[ImGuiCol_ChildBg]              = bgMid;
     c[ImGuiCol_PopupBg]              = bgMid;
-
     c[ImGuiCol_TitleBg]              = bgPanel;
     c[ImGuiCol_TitleBgActive]        = ImVec4(0.05f, 0.28f, 0.60f, 1.00f);
     c[ImGuiCol_TitleBgCollapsed]     = bgDeep;
-
     c[ImGuiCol_Header]               = tealDim;
     c[ImGuiCol_HeaderHovered]        = ImVec4(0.04f, 0.80f, 0.76f, 0.45f);
     c[ImGuiCol_HeaderActive]         = ImVec4(0.04f, 0.80f, 0.76f, 0.65f);
-
     c[ImGuiCol_Button]               = ImVec4(0.06f, 0.22f, 0.50f, 1.00f);
     c[ImGuiCol_ButtonHovered]        = accentHov;
     c[ImGuiCol_ButtonActive]         = accentAct;
-
     c[ImGuiCol_FrameBg]              = ImVec4(0.06f, 0.10f, 0.22f, 1.00f);
     c[ImGuiCol_FrameBgHovered]       = ImVec4(0.09f, 0.20f, 0.42f, 1.00f);
     c[ImGuiCol_FrameBgActive]        = accentAct;
-
     c[ImGuiCol_CheckMark]            = accent;
     c[ImGuiCol_SliderGrab]           = accent;
     c[ImGuiCol_SliderGrabActive]     = accentHov;
-
     c[ImGuiCol_Tab]                  = bgPanel;
     c[ImGuiCol_TabHovered]           = accentHov;
     c[ImGuiCol_TabActive]            = accent;
     c[ImGuiCol_TabUnfocused]         = bgDeep;
     c[ImGuiCol_TabUnfocusedActive]   = bgPanel;
-
     c[ImGuiCol_Separator]            = border;
     c[ImGuiCol_SeparatorHovered]     = accent;
     c[ImGuiCol_SeparatorActive]      = accentHov;
-
     c[ImGuiCol_Border]               = border;
     c[ImGuiCol_BorderShadow]         = ImVec4(0.09f, 0.64f, 0.96f, 0.12f);
-
     c[ImGuiCol_Text]                 = txtMain;
     c[ImGuiCol_TextDisabled]         = txtDim;
-
     c[ImGuiCol_ScrollbarBg]          = bgDeep;
     c[ImGuiCol_ScrollbarGrab]        = ImVec4(0.09f, 0.35f, 0.65f, 1.00f);
     c[ImGuiCol_ScrollbarGrabHovered] = accent;
     c[ImGuiCol_ScrollbarGrabActive]  = accentHov;
-
     c[ImGuiCol_ResizeGrip]           = tealDim;
     c[ImGuiCol_ResizeGripHovered]    = teal;
     c[ImGuiCol_ResizeGripActive]     = accent;
 
-    // --- Shape & spacing ---
     s.WindowRounding    = 12.0f;
     s.FrameRounding     = 8.0f;
     s.GrabRounding      = 8.0f;
@@ -288,18 +270,6 @@ static const char* PRORATE_NAMES[]= {"OFF","Low 150%","Med 200%","High 300%"};
 static const char* CRIT_NAMES[]   = {"OFF","+50","+100","+150"};
 static const char* BRAVE_NAMES[]  = {"OFF","Lv1 +100","Lv2 +200","Lv3 +300"};
 
-// Colored section header
-static void SectionHeader(const char* label) {
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.09f,0.80f,0.96f,1.00f));
-    bool open = ImGui::CollapsingHeader(label);
-    ImGui::PopStyleColor();
-    if(open) ImGui::Dummy(ImVec2(0,2));
-    // trick: we return nothing, caller uses CollapsingHeader return value
-    // so we just re-call it; instead, wrap callers inline:
-    (void)open;
-}
-
-// Styled toggle checkbox: cyan checkmark, label white
 #define TOGGLE(label, flag, fn) \
     do { \
         bool _v = flag; \
@@ -307,7 +277,7 @@ static void SectionHeader(const char* label) {
     } while(0)
 
 // ============================================================
-//  BeginDraw  — full menu
+//  BeginDraw
 // ============================================================
 static void BeginDraw() {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -321,7 +291,6 @@ static void BeginDraw() {
     ImGui::PopStyleColor();
     if(!open){ ImGui::End(); return; }
 
-    // --- Branding bar ---
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.04f,0.80f,0.76f,1.00f));
     ImGui::Text("~ EnvyMOD v1.0  |  Toram Online ~");
     ImGui::PopStyleColor();
@@ -330,7 +299,7 @@ static void BeginDraw() {
     ImGui::PopStyleColor();
     ImGui::Spacing();
 
-    // ===== PRESET =====
+    // PRESET
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.05f,0.28f,0.60f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.45f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.04f,0.80f,0.76f,1.00f));
@@ -354,7 +323,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // ===== PLAYER =====
+    // PLAYER
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.04f,0.18f,0.45f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.35f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.96f,1.00f,1.00f));
@@ -375,7 +344,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // ===== DAMAGE OPTIONS =====
+    // DAMAGE
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.04f,0.18f,0.45f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.35f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.96f,1.00f,1.00f));
@@ -392,17 +361,14 @@ static void BeginDraw() {
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.04f,0.20f,0.48f,1.00f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.09f,0.64f,0.96f,1.00f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.02f,0.15f,0.40f,1.00f));
-        // Phys
         if(ImGui::Button("P:OFF"))  SetPhysCrit(0); ImGui::SameLine();
         if(ImGui::Button("+50P"))   SetPhysCrit(1); ImGui::SameLine();
         if(ImGui::Button("+100P"))  SetPhysCrit(2); ImGui::SameLine();
         if(ImGui::Button("+150P"))  SetPhysCrit(3);
-        // Mag
         if(ImGui::Button("M:OFF"))  SetMagCrit(0);  ImGui::SameLine();
         if(ImGui::Button("+50M"))   SetMagCrit(1);  ImGui::SameLine();
         if(ImGui::Button("+100M"))  SetMagCrit(2);  ImGui::SameLine();
         if(ImGui::Button("+150M"))  SetMagCrit(3);
-        // Prorate
         if(ImGui::Button("PR:OFF")) SetProrate(0);  ImGui::SameLine();
         if(ImGui::Button("150%"))   SetProrate(1);  ImGui::SameLine();
         if(ImGui::Button("200%"))   SetProrate(2);  ImGui::SameLine();
@@ -411,7 +377,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // ===== SKILL MODS =====
+    // SKILL MODS
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.04f,0.18f,0.45f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.35f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.96f,1.00f,1.00f));
@@ -435,7 +401,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // ===== ELEMENT =====
+    // ELEMENT
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.04f,0.18f,0.45f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.35f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.96f,1.00f,1.00f));
@@ -455,7 +421,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // ===== MOB =====
+    // MOB
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.04f,0.18f,0.45f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.35f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.96f,1.00f,1.00f));
@@ -469,7 +435,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // ===== OTHER =====
+    // OTHER
     ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.04f,0.18f,0.45f,0.55f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.09f,0.64f,0.96f,0.35f));
     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.96f,1.00f,1.00f));
@@ -488,7 +454,7 @@ static void BeginDraw() {
         ImGui::Spacing();
     }
 
-    // --- Footer ---
+    // Footer
     ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.09f,0.64f,0.96f,0.40f));
     ImGui::Separator();
     ImGui::PopStyleColor();
@@ -574,7 +540,7 @@ void *Init(void *) {
         il2cppMap = KittyMemory::getLibraryBaseMap("libil2cpp.so");
         sleep(1);
     }
-    il2cppBase = il2cppMap.startAddr;
+    il2cppBase = il2cppMap.startAddress;  // fixed: startAddr -> startAddress
     Il2cpp::Init();
 
     Tools::Hook(
